@@ -1,4 +1,4 @@
-var minInterest = 12.2;
+var minInterest = 13.2;
 var minAmount = 10;
 var config = require('./config.json');
 
@@ -162,18 +162,17 @@ driver.wait(function() {
 
                         driver.findElement(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")).sendKeys(shares);
 
-                        driver.findElement(By.id('invest-submit')).click();
-                        driver.sleep(10).then(function() {
+                        _click($('#invest-submit')).then(function() {
                             console.log("before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
-                        });
-                        driver.findElement(By.xpath(
-                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']"))
-                            .click();
-                            // .then(function() {
-                            
-                            // });
-                        //driver.sleep(1000);
-                        driver.findElement(webdriver.By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]"))
+                            return driver.wait(Until.elementLocated(By.xpath(
+                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
+                        }).then(function() {
+                            return _click(_(By.xpath(
+                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
+                        }).then(function() {
+                            return driver.wait(Until.elementLocated(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")));
+                        }).then(function() {
+                            driver.findElement(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]"))
                             .then(function(textele) {
                                 textele.getText().then(function(text){
                                     if (0===text.indexOf("您已成功投资")) {
@@ -187,6 +186,9 @@ driver.wait(function() {
                                     } else if (0===text.indexOf("购买此债权的人数过多")){
                                         gFinishBuyingTime = 0;
                                         console.log("***********************Failed: not enough", new Date().toLocaleTimeString());
+                                    } else if (0 === text.indexOf('份额不足，请重新购买')) {
+                                        gFinishBuyingTime = 0;
+                                        console.log("***********************Failed: not enough", new Date().toLocaleTimeString());
                                     } else {
                                         gFinishBuyingTime = 0;
                                         console.log("***********************Failed: others");
@@ -196,9 +198,9 @@ driver.wait(function() {
                                     gStartBuying = false;
                                 })
                                    
-                            })
-
-
+                            });
+                        });
+                        
                     });
             });
         return false;
