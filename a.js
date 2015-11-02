@@ -279,10 +279,13 @@ function detectNewTransfer(tid, callback) {
                 } else {
                     console.log('nextTransferId ' + tid + ' exists.');
                     var $body = cheerio.load(body);
-                    var sharesAvailable = $body('#max-shares').text()
+                    var sharesAvailable = $body('#max-shares').attr('data-shares');
                     var interest = Number($body('.text-xxxl.num-family.color-dark-text').text());
                     var price = Number($body('#amount-per-share').text());
                     var callbackObj = null;
+                    if (!sharesAvailable) {
+                        console.log(body);
+                    }
                     callbackObj = {
                         transferId: tid,
                         interest: interest,
