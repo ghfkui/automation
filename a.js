@@ -133,16 +133,16 @@ driver.wait(function() {
                 }
                 var creditLevel;
                 driver.findElement(By.xpath(
-                        "//div[@id='loan-tab-content']//span[@class='icon-creditlevel AA snow ml10'" + " or @class='icon-creditlevel A snow ml10'" + " or @class='icon-creditlevel B snow ml10'" + " or @class='icon-creditlevel C snow ml10'" + " or @class='icon-creditlevel D snow ml10'" + " or @class='icon-creditlevel E snow ml10'" + " or @class='icon-creditlevel HR snow ml10']"))
-                    .getText().then(function(text) {
+                        "//div[@id='loan-tab-content']//em[contains(@title, '信用分数')]"))
+                    .getAttribute('title').then(function(text) {
                         console.log("creditLevel", text);
-                        creditLevel = text;
+                        creditLevel = parseInt(text.replace(/[^0-9]/ig,""));
                     });
 
                 driver.findElement(By.id('max-shares')).getAttribute("data-shares")
                     .then(function(shares) {
                         console.log("shares:", creditLevel, productToBuy.transferId, shares + " * " + productToBuy.pricePerShare)
-                        if (creditLevel != "A" && creditLevel != "AA") {
+                        if (creditLevel < 100) {
                             console.log("Too low credit level:", creditLevel);
                             gStartBuying = false;
                             return;
@@ -167,13 +167,13 @@ driver.wait(function() {
                             console.log("before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
                         });
                         driver.findElement(By.xpath(
-                                "//form[@action='/transfer/buyLoanTransfer.action']//button[@class='fn-left ui-button ui-button-blue ui-button-mid']"))
+                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']"))
                             .click();
                             // .then(function() {
                             
                             // });
                         //driver.sleep(1000);
-                        driver.findElement(webdriver.By.xpath("//div[@class='ui-dialog']//p[@class='text-big']"))
+                        driver.findElement(webdriver.By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]"))
                             .then(function(textele) {
                                 textele.getText().then(function(text){
                                     if (0===text.indexOf("您已成功投资")) {
