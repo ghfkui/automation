@@ -1,4 +1,4 @@
-var minInterest = 13.2;
+var minInterest = 12.6;
 var minAmount = 10;
 var config = require('./config.json');
 
@@ -13,70 +13,71 @@ withCapabilities(webdriver.Capabilities.chrome()).
 build();
 
 var timeouts = (new webdriver.WebDriver.Timeouts(driver))
-timeouts.setScriptTimeout(10000);
+// timeouts.setScriptTimeout(10000);
 
 var _ = function(locator) {
-	return driver.findElement(locator);
+    return driver.findElement(locator);
 }
 
 var $ = function(css) {
-	return _(By.css(css));
+    return _(By.css(css));
 }
 
 var _click = function(webElement) {
-	return driver.actions().mouseMove(webElement).click().perform();
+    return driver.actions().mouseMove(webElement).click().perform();
 }
 
 var path = {
-	login: {
-		loginBox: 'div#loginBox',
-		user: 'input#j_username',
-		passwd: 'input#J_pass_input',
-		loginBtn: 'input.login-btn'
-	},
-	user: {
-		// user info
-		infoBox: 'div.main-section div.user-info-box',
-		// 
-		avilableBalance: 'li.acc-tab-li[data-name="balance"]>span.num-family'
-	}
+    login: {
+        loginBox: 'div#loginBox',
+        user: 'input#j_username',
+        passwd: 'input#J_pass_input',
+        loginBtn: 'input.login-btn'
+    },
+    user: {
+        // user info
+        infoBox: 'div.main-section div.user-info-box',
+        // 
+        avilableBalance: 'li.acc-tab-li[data-name="balance"]>span.num-family'
+    }
 }
 
 var gAvailableBalance = 0;
 var newTransfers = [];
 var nextTransferId;
-var loopCheckIntervalLong = 1000;
+var loopCheckIntervalLong = 500;
 var loopCheckIntervalShort = 200;
 var gStartBuying = false;
 var gFinishBuyingTime = 0;
 
 var login = function() {
-	return driver.wait(Until.elementLocated(By.css(path.login.loginBox))).then(function() {
-		$(path.login.user).sendKeys(config._u);
-		$(path.login.passwd).sendKeys(config._p);
-		return $(path.login.loginBtn).submit().then(function() {
-			return driver.wait(Until.elementIsVisible($(path.user.infoBox)));
-		});
-	});
+    return driver.wait(Until.elementLocated(By.css(path.login.loginBox))).then(function() {
+        $(path.login.user).sendKeys(config._u);
+        $(path.login.passwd).sendKeys(config._p);
+        return $(path.login.loginBtn).submit().then(function() {
+            return driver.wait(Until.elementIsVisible($(path.user.infoBox)));
+        });
+    });
 }
 
 var updateBalance =function() {
     driver.get('https://www.we.com/account/index.action');
     return $(path.user.avilableBalance).getText().then(function(fund) {
         fund = fund.replace(",", "");
-        console.log("updateBalance", fund)
-        gAvailableBalance = Number(fund);
+        
+        gAvailableBalance = parseInt(fund);
+        console.log("updateBalance", gAvailableBalance)
     });
 }
 
 driver.get('https://www.we.com/loginPage.action').then(function() {
-	login().then(function() {
-		setInterval(function() {
+    login().then(function() {
+        setInterval(function() {
             driver.get('http://www.we.com/transfer/transferList.action');
             console.log("sessionHeartBeat:", nextTransferId, gAvailableBalance, new Date().toLocaleTimeString())
         }, 300000);
-		return updateBalance();
-	}).then(function() {
+        return updateBalance();
+    }).then(function() {
         longBehindChecking(function(tid) {
             //driver.sleep(1000);
             loopCheckingNext(loopCheckIntervalShort)
@@ -92,7 +93,7 @@ function longBehindChecking(callback) {
         },
         function(error, response, body) {
             if (!error && response.statusCode == 200) {
-				var json = JSON.parse(body);
+                var json = JSON.parse(body);
                 var products = json.data.transferList;
                 products.sort(function(p1, p2) {
                     var p1id = Number(p1.id);
@@ -109,72 +110,61 @@ function longBehindChecking(callback) {
 
 
 driver.wait(function() {
+    
     if (newTransfers.length === 0) return false;
     if (gStartBuying) return false;
-    if ((new Date() - gFinishBuyingTime) > 5000) {
+    if ((new Date() - gFinishBuyingTime) > 3000) {
         var productToBuy = newTransfers[newTransfers.length - 1];
         newTransfers.length = 0;
 
         gStartBuying = true;
         var startBuyingTime = new Date();
         console.log("\nstart:", productToBuy.transferId, new Date().toLocaleTimeString());
-
+        var creditLevel;
         driver.get('http://www.we.com/transfer/loanTransferDetail.action?transferId=' + productToBuy.transferId)
             .then(function() {
                 console.log("loaded detail", new Date().toLocaleTimeString());
-            });
-		
-        driver.isElementPresent(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']"))
-            .then(function(found) {
-                if (!found) {
+                driver.wait(Until.elementLocated(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']"))).thenCatch(function() {
                     console.log("----------------Too late", productToBuy.transferId, new Date().toLocaleTimeString());
                     gStartBuying = false;
-                    return;
-                }
-                var creditLevel;
-                driver.findElement(By.xpath(
-                        "//div[@id='loan-tab-content']//em[contains(@title, '信用分数')]"))
-                    .getAttribute('title').then(function(text) {
-                        console.log("creditLevel", text);
+                    return false;
+                }).then(function() {
+                    _(By.xpath("//div[@id='loan-tab-content']//em[contains(@title, '信用分数')]")).getAttribute('title').then(function(text) {
                         creditLevel = parseInt(text.replace(/[^0-9]/ig,""));
-                    });
-
-                driver.findElement(By.id('max-shares')).getAttribute("data-shares")
-                    .then(function(shares) {
-                        console.log("shares:", creditLevel, productToBuy.transferId, shares + " * " + productToBuy.pricePerShare)
+                        
                         if (creditLevel < 100) {
                             console.log("Too low credit level:", creditLevel);
                             gStartBuying = false;
-                            return;
-                        }
+                            return false;
+                        } else {
+                            $('#max-shares').getAttribute("data-shares").then(function(shares) {
+                                console.log("shares:", creditLevel, productToBuy.transferId, shares + " * " + productToBuy.pricePerShare)
+                                shares = adjuestShareNumber(shares, productToBuy.pricePerShare);
+                                if(shares === 0) {
+                                    console.log("No enough shares.");
+                                    gStartBuying = false;
+                                    return;
+                                }
+                               
 
-                        shares = adjuestShareNumber(shares, productToBuy.pricePerShare);
-                        if(shares===0) {
-                            console.log("No enough shares.");
-                            gStartBuying = false;
-                            return;
-                        }
-                       
+                                if (new Date() - startBuyingTime < 1000) driver.sleep(1000 - (new Date() - startBuyingTime));
 
-                        if (new Date() - startBuyingTime < 1000) driver.sleep(1000 - (new Date() - startBuyingTime));
+                                // shares = 1;
 
-                        // shares = 1;
+                                driver.findElement(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")).sendKeys(shares);
 
-                        driver.findElement(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")).sendKeys(shares);
-
-                        _click($('#invest-submit')).then(function() {
-                            console.log("before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
-                            return driver.wait(Until.elementLocated(By.xpath(
-                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
-                        }).then(function() {
-                            return _click(_(By.xpath(
-                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
-                        }).then(function() {
-                            return driver.wait(Until.elementLocated(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")));
-                        }).then(function() {
-                            driver.findElement(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]"))
-                            .then(function(textele) {
-                                textele.getText().then(function(text){
+                                _click($('#invest-submit')).then(function() {
+                                    console.log("before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
+                                    return driver.wait(Until.elementLocated(By.xpath(
+                                        "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
+                                }).then(function() {
+                                    return _click(_(By.xpath(
+                                        "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
+                                }).then(function() {
+                                    return driver.wait(Until.elementLocated(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")));
+                                }).then(function() {
+                                    return _(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")).getText(); 
+                                }).then(function(text){
                                     if (0===text.indexOf("您已成功投资")) {
                                         console.log("*******Finish!", productToBuy.transferId, new Date().toLocaleTimeString(), (new Date() - startBuyingTime),
                                         "("+gAvailableBalance + "-" + (shares * productToBuy.pricePerShare)+")", "\n", productToBuy, "\n");
@@ -182,7 +172,7 @@ driver.wait(function() {
                                         updateBalance();
                                     } else if (0===text.indexOf("该债权不能购买")) {
                                         gFinishBuyingTime = 0;
-                                        console.log("***********************Failed: can buy it", new Date().toLocaleTimeString());
+                                        console.log("***********************Failed: can not buy it", new Date().toLocaleTimeString());
                                     } else if (0===text.indexOf("购买此债权的人数过多")){
                                         gFinishBuyingTime = 0;
                                         console.log("***********************Failed: not enough", new Date().toLocaleTimeString());
@@ -196,13 +186,13 @@ driver.wait(function() {
                                     
                                     
                                     gStartBuying = false;
-                                })
-                                   
+                                });
                             });
-                        });
-                        
+                        }           
                     });
+                });
             });
+        
         return false;
     }
 
@@ -223,7 +213,7 @@ function loopCheckingNext(interval) {
             if (obj) {
                 nextTransferId++;
                 var sh = adjuestShareNumber(obj.shares, obj.pricePerShare);
-				console.log(newTransfers.length, gStartBuying, new Date() - gFinishBuyingTime, obj.interest >= minInterest, sh);
+                console.log(newTransfers.length, gStartBuying, new Date() - gFinishBuyingTime, obj.interest >= minInterest, sh);
 
                 if (obj.interest >= minInterest && sh > 0) {
                     newTransfers.push(obj);
@@ -234,13 +224,17 @@ function loopCheckingNext(interval) {
                 if (interval === loopCheckIntervalLong) {
                     console.log("->", nextTransferId, new Date().toLocaleTimeString())
                     clearInterval(intervalObj);
-                    loopCheckingNext(loopCheckIntervalShort);
+                    longBehindChecking(function(tid) {
+                        loopCheckingNext(loopCheckIntervalShort)
+                    });
                 }
             } else {
                 if (interval === loopCheckIntervalShort) {
                     console.log("-|", nextTransferId, new Date().toLocaleTimeString(), gStartBuying)
                     clearInterval(intervalObj);
-                    loopCheckingNext(loopCheckIntervalLong);
+                    longBehindChecking(function(tid) {
+                        loopCheckingNext(loopCheckIntervalShort)
+                    });
                 }
             }
 
@@ -257,6 +251,7 @@ function adjuestShareNumber(shares, pricePerShare) {
     } else if (price < minAmount) {
         shr = 0;
     }
+    console.log('balance: ', gAvailableBalance, ' pricePerShare: ', pricePerShare, 'canbuy: ', shr, shares);
     return shr;
 }
 
@@ -283,17 +278,16 @@ function detectNewTransfer(tid, callback) {
                     var interest = Number($body('.text-xxxl.num-family.color-dark-text').text());
                     var price = Number($body('#amount-per-share').text());
                     var callbackObj = null;
-                    if (!sharesAvailable) {
-                        console.log(body);
-                    }
-                    callbackObj = {
-                        transferId: tid,
-                        interest: interest,
-                        shares: sharesAvailable,
-                        pricePerShare: price,
-                        timestemp: new Date()
-                    };
-                    console.dir(callbackObj)
+                    if (sharesAvailable) {
+                        callbackObj = {
+                            transferId: tid,
+                            interest: interest,
+                            shares: sharesAvailable,
+                            pricePerShare: price,
+                            timestemp: new Date()
+                        };
+                        console.dir(callbackObj)
+                    } 
                     callback(tid, callbackObj);
                 }
             } else {
