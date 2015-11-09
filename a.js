@@ -1,4 +1,4 @@
-var minInterest = 12.6;
+var minInterest = 10;
 var minAmount = 10;
 var config = require('./config.json');
 
@@ -65,7 +65,7 @@ var updateBalance =function() {
     return $(path.user.avilableBalance).getText().then(function(fund) {
         fund = fund.replace(",", "");
         
-        gAvailableBalance = parseInt(fund);
+        gAvailableBalance = 1000;
         console.log("updateBalance", gAvailableBalance)
     });
 }
@@ -110,7 +110,6 @@ function longBehindChecking(callback) {
 
 
 driver.wait(function() {
-    
     if (newTransfers.length === 0) return false;
     if (gStartBuying) return false;
     if ((new Date() - gFinishBuyingTime) > 3000) {
@@ -120,75 +119,93 @@ driver.wait(function() {
         gStartBuying = true;
         var startBuyingTime = new Date();
         console.log("\nstart:", productToBuy.transferId, new Date().toLocaleTimeString());
-        var creditLevel;
+        var creditLevel, prefix = "start----------------" + productToBuy.transferId + "----";
         driver.get('http://www.we.com/transfer/loanTransferDetail.action?transferId=' + productToBuy.transferId)
             .then(function() {
-                console.log("loaded detail", new Date().toLocaleTimeString());
-                driver.wait(Until.elementLocated(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']"))).thenCatch(function() {
-                    console.log("----------------Too late", productToBuy.transferId, new Date().toLocaleTimeString());
-                    gStartBuying = false;
-                    return false;
-                }).then(function() {
+                console.log(prefix, "loaded detail", new Date().toLocaleTimeString());
+                driver.wait(Until.elementLocated(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")), 1500, prefix+'timeout').then(function() {
+                    console.log(prefix, 'get creditLevel');
                     _(By.xpath("//div[@id='loan-tab-content']//em[contains(@title, '信用分数')]")).getAttribute('title').then(function(text) {
                         creditLevel = parseInt(text.replace(/[^0-9]/ig,""));
-                        
+                        console.log(prefix, 'creditLevel: ', creditLevel)
+                        driver.sleep(100);
                         if (creditLevel < 100) {
-                            console.log("Too low credit level:", creditLevel);
-                            gStartBuying = false;
-                            return false;
+                            return buyErrorHandle(prefix, "Too low credit level:", creditLevel);
                         } else {
-                            $('#max-shares').getAttribute("data-shares").then(function(shares) {
-                                console.log("shares:", creditLevel, productToBuy.transferId, shares + " * " + productToBuy.pricePerShare)
-                                shares = adjuestShareNumber(shares, productToBuy.pricePerShare);
-                                if(shares === 0) {
-                                    console.log("No enough shares.");
-                                    gStartBuying = false;
-                                    return;
+                            $('#max-shares').then(function(el) {
+                                
+                                if(!(el && el.getAttribute)) {
+                                    return buyErrorHandle(prefix, 'error occured - > input -> el');
                                 }
-                               
-
-                                if (new Date() - startBuyingTime < 1000) driver.sleep(1000 - (new Date() - startBuyingTime));
-
-                                // shares = 1;
-
-                                driver.findElement(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")).sendKeys(shares);
-
-                                _click($('#invest-submit')).then(function() {
-                                    console.log("before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
-                                    return driver.wait(Until.elementLocated(By.xpath(
-                                        "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
-                                }).then(function() {
-                                    return _click(_(By.xpath(
-                                        "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
-                                }).then(function() {
-                                    return driver.wait(Until.elementLocated(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")));
-                                }).then(function() {
-                                    return _(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")).getText(); 
-                                }).then(function(text){
-                                    if (0===text.indexOf("您已成功投资")) {
-                                        console.log("*******Finish!", productToBuy.transferId, new Date().toLocaleTimeString(), (new Date() - startBuyingTime),
-                                        "("+gAvailableBalance + "-" + (shares * productToBuy.pricePerShare)+")", "\n", productToBuy, "\n");
-                                        gFinishBuyingTime = new Date();
-                                        updateBalance();
-                                    } else if (0===text.indexOf("该债权不能购买")) {
-                                        gFinishBuyingTime = 0;
-                                        console.log("***********************Failed: can not buy it", new Date().toLocaleTimeString());
-                                    } else if (0===text.indexOf("购买此债权的人数过多")){
-                                        gFinishBuyingTime = 0;
-                                        console.log("***********************Failed: not enough", new Date().toLocaleTimeString());
-                                    } else if (0 === text.indexOf('份额不足，请重新购买')) {
-                                        gFinishBuyingTime = 0;
-                                        console.log("***********************Failed: not enough", new Date().toLocaleTimeString());
-                                    } else {
-                                        gFinishBuyingTime = 0;
-                                        console.log("***********************Failed: others");
+                                el.getAttribute("data-shares").then(function(shares) {
+                                    console.log(prefix, "shares:", creditLevel, productToBuy.transferId, shares + " * " + productToBuy.pricePerShare)
+                                    shares = adjuestShareNumber(shares, productToBuy.pricePerShare);
+                                    if(shares === 0) {
+                                        return buyErrorHandle(prefix, "No enough shares.");
                                     }
-                                    
-                                    
-                                    gStartBuying = false;
+                                   
+
+                                    if (new Date() - startBuyingTime < 1000) driver.sleep(1000 - (new Date() - startBuyingTime));
+
+                                    // shares = 1;
+
+                                    _(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")).then(function(el) {
+                                        if (!(el && el.sendKeys)) {
+                                            return buyErrorHandle(prefix, 'error occured - > input -> el');
+                                        }
+                                        el.sendKeys(shares);
+
+                                        gFinishBuyingTime = 0;
+                                        gStartBuying = false;
+                                        console.log('test over');
+                                        return;
+
+                                        _click($('#invest-submit')).then(function() {
+                                            console.log(prefix, "before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
+                                        //     return driver.wait(Until.elementLocated(By.xpath(
+                                        //         "//form[@action='/transfer/buyLoanTransfer.action']")));
+                                        // }).then(function() {
+                                            console.log(prefix, 'click confirm button');
+                                            return _click(_(By.xpath(
+                                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
+                                        }).then(function() {
+                                            console.log(prefix, 'waiting result');
+                                            return driver.wait(Until.elementLocated(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")));
+                                        }).then(function() {
+                                            return _(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")).getText(); 
+                                        }).then(function(text){
+                                            var prefix = 'end***********************' + productToBuy.transferId + '****';
+                                            if (0===text.indexOf("您已成功投资")) {
+                                                console.log(prefix, "Finish!", productToBuy.transferId, new Date().toLocaleTimeString(), (new Date() - startBuyingTime),
+                                                "("+gAvailableBalance + "-" + (shares * productToBuy.pricePerShare)+")", "\n", productToBuy, "\n");
+                                                gFinishBuyingTime = new Date();
+                                                updateBalance();
+                                            } else if (0===text.indexOf("该债权不能购买")) {
+                                                gFinishBuyingTime = 0;
+                                                console.log(prefix, "Failed: can not buy it", new Date().toLocaleTimeString());
+                                            } else if (0===text.indexOf("购买此债权的人数过多")){
+                                                gFinishBuyingTime = 0;
+                                                console.log(prefix, "Failed: not enough", new Date().toLocaleTimeString());
+                                            } else if (0 === text.indexOf('份额不足，请重新购买')) {
+                                                gFinishBuyingTime = 0;
+                                                console.log(prefix, "Failed: not enough", new Date().toLocaleTimeString());
+                                            } else {
+                                                gFinishBuyingTime = 0;
+                                                console.log(prefix, "Failed: others");
+                                            }
+                                            
+                                            gStartBuying = false;
+                                        });
+                                    }).thenCatch(function() {
+                                        return buyErrorHandle(prefix, "page refresh-> input");
+                                    });
                                 });
+                            }).thenCatch(function() {
+                                return buyErrorHandle(prefix, 'page refresh-> max-shares');
                             });
                         }           
+                    }).thenCatch(function() {
+                        return buyErrorHandle(prefix, "Too late", productToBuy.transferId, new Date().toLocaleTimeString());
                     });
                 });
             });
@@ -306,6 +323,13 @@ function getValueFromBody(preStr, postStr, body) {
 
     var str = body.substring(startIdx + preStr.length, endIdx);
     return str;
+}
+
+function buyErrorHandle() {
+    console.log.call(arguments);
+    gFinishBuyingTime = 0;
+    gStartBuying = false;
+    return;
 }
 
 
