@@ -125,88 +125,95 @@ driver.wait(function() {
                 console.log(prefix, "loaded detail", new Date().toLocaleTimeString());
                 driver.wait(Until.elementLocated(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")), 1500, prefix+'timeout').then(function() {
                     console.log(prefix, 'get creditLevel');
-                    _(By.xpath("//div[@id='loan-tab-content']//em[contains(@title, '信用分数')]")).getAttribute('title').then(function(text) {
-                        creditLevel = parseInt(text.replace(/[^0-9]/ig,""));
-                        console.log(prefix, 'creditLevel: ', creditLevel)
-                        driver.sleep(100);
-                        if (creditLevel < 100) {
-                            return buyErrorHandle(prefix, "Too low credit level:", creditLevel);
-                        } else {
-                            $('#max-shares').then(function(el) {
-                                
-                                if(!(el && el.getAttribute)) {
-                                    return buyErrorHandle(prefix, 'error occured - > input -> el');
-                                }
-                                el.getAttribute("data-shares").then(function(shares) {
-                                    console.log(prefix, "shares:", creditLevel, productToBuy.transferId, shares + " * " + productToBuy.pricePerShare)
-                                    shares = adjuestShareNumber(shares, productToBuy.pricePerShare);
-                                    if(shares === 0) {
-                                        return buyErrorHandle(prefix, "No enough shares.");
+                    _(By.xpath("//div[@id='loan-tab-content']//em[contains(@title, '信用分数')]")).then(function(el) {
+                        if (!(el && el.getAttribute)) {
+                            return buyErrorHandle(prefix, "error occured - > get creditLevel - > el", creditLevel);
+                        }
+                        el.getAttribute('title').then(function(text) {
+                            creditLevel = parseInt(text.replace(/[^0-9]/ig,""));
+                            console.log(prefix, 'creditLevel: ', creditLevel)
+                            driver.sleep(100);
+                            if (creditLevel < 100) {
+                                return buyErrorHandle(prefix, "Too low credit level:", creditLevel);
+                            } else {
+                                $('#max-shares').then(function(el) {
+                                    
+                                    if(!(el && el.getAttribute)) {
+                                        return buyErrorHandle(prefix, 'error occured - > input -> el');
                                     }
-                                   
-
-                                    if (new Date() - startBuyingTime < 1000) driver.sleep(1000 - (new Date() - startBuyingTime));
-
-                                    // shares = 1;
-
-                                    _(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")).then(function(el) {
-                                        if (!(el && el.sendKeys)) {
-                                            return buyErrorHandle(prefix, 'error occured - > input -> el');
+                                    el.getAttribute("data-shares").then(function(shares) {
+                                        console.log(prefix, "shares:", creditLevel, productToBuy.transferId, shares + " * " + productToBuy.pricePerShare)
+                                        shares = adjuestShareNumber(shares, productToBuy.pricePerShare);
+                                        if(shares === 0) {
+                                            return buyErrorHandle(prefix, "No enough shares.");
                                         }
-                                        el.sendKeys(shares);
+                                       
 
-                                        gFinishBuyingTime = 0;
-                                        gStartBuying = false;
-                                        console.log('test over');
-                                        return;
+                                        if (new Date() - startBuyingTime < 1000) driver.sleep(1000 - (new Date() - startBuyingTime));
 
-                                        _click($('#invest-submit')).then(function() {
-                                            console.log(prefix, "before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
-                                        //     return driver.wait(Until.elementLocated(By.xpath(
-                                        //         "//form[@action='/transfer/buyLoanTransfer.action']")));
-                                        // }).then(function() {
-                                            console.log(prefix, 'click confirm button');
-                                            return _click(_(By.xpath(
-                                                "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
-                                        }).then(function() {
-                                            console.log(prefix, 'waiting result');
-                                            return driver.wait(Until.elementLocated(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")));
-                                        }).then(function() {
-                                            return _(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")).getText(); 
-                                        }).then(function(text){
-                                            var prefix = 'end***********************' + productToBuy.transferId + '****';
-                                            if (0===text.indexOf("您已成功投资")) {
-                                                console.log(prefix, "Finish!", productToBuy.transferId, new Date().toLocaleTimeString(), (new Date() - startBuyingTime),
-                                                "("+gAvailableBalance + "-" + (shares * productToBuy.pricePerShare)+")", "\n", productToBuy, "\n");
-                                                gFinishBuyingTime = new Date();
-                                                updateBalance();
-                                            } else if (0===text.indexOf("该债权不能购买")) {
-                                                gFinishBuyingTime = 0;
-                                                console.log(prefix, "Failed: can not buy it", new Date().toLocaleTimeString());
-                                            } else if (0===text.indexOf("购买此债权的人数过多")){
-                                                gFinishBuyingTime = 0;
-                                                console.log(prefix, "Failed: not enough", new Date().toLocaleTimeString());
-                                            } else if (0 === text.indexOf('份额不足，请重新购买')) {
-                                                gFinishBuyingTime = 0;
-                                                console.log(prefix, "Failed: not enough", new Date().toLocaleTimeString());
-                                            } else {
-                                                gFinishBuyingTime = 0;
-                                                console.log(prefix, "Failed: others");
+                                        // shares = 1;
+
+                                        _(By.xpath("//input[@class='ui-term-input ui-input ui-input-text']")).then(function(el) {
+                                            if (!(el && el.sendKeys)) {
+                                                return buyErrorHandle(prefix, 'error occured - > input -> el');
                                             }
-                                            
+                                            el.sendKeys(shares);
+
+                                            gFinishBuyingTime = 0;
                                             gStartBuying = false;
+                                            console.log('test over');
+                                            return;
+
+                                            _click($('#invest-submit')).then(function() {
+                                                console.log(prefix, "before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
+                                            //     return driver.wait(Until.elementLocated(By.xpath(
+                                            //         "//form[@action='/transfer/buyLoanTransfer.action']")));
+                                            // }).then(function() {
+                                                console.log(prefix, 'click confirm button');
+                                                return _click(_(By.xpath(
+                                                    "//form[@action='/transfer/buyLoanTransfer.action']//div[contains(@class,'ui-confirm-submit-box')]//button[@type='submit']")));
+                                            }).then(function() {
+                                                console.log(prefix, 'waiting result');
+                                                return driver.wait(Until.elementLocated(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")));
+                                            }).then(function() {
+                                                return _(By.xpath("//div[@class='ui-dialog']//p[contains(@class,'j-result-text')]")).getText(); 
+                                            }).then(function(text){
+                                                var prefix = 'end***********************' + productToBuy.transferId + '****';
+                                                if (0===text.indexOf("您已成功投资")) {
+                                                    console.log(prefix, "Finish!", productToBuy.transferId, new Date().toLocaleTimeString(), (new Date() - startBuyingTime),
+                                                    "("+gAvailableBalance + "-" + (shares * productToBuy.pricePerShare)+")", "\n", productToBuy, "\n");
+                                                    gFinishBuyingTime = new Date();
+                                                    updateBalance();
+                                                } else if (0===text.indexOf("该债权不能购买")) {
+                                                    gFinishBuyingTime = 0;
+                                                    console.log(prefix, "Failed: can not buy it", new Date().toLocaleTimeString());
+                                                } else if (0===text.indexOf("购买此债权的人数过多")){
+                                                    gFinishBuyingTime = 0;
+                                                    console.log(prefix, "Failed: not enough", new Date().toLocaleTimeString());
+                                                } else if (0 === text.indexOf('份额不足，请重新购买')) {
+                                                    gFinishBuyingTime = 0;
+                                                    console.log(prefix, "Failed: not enough", new Date().toLocaleTimeString());
+                                                } else {
+                                                    gFinishBuyingTime = 0;
+                                                    console.log(prefix, "Failed: others");
+                                                }
+                                                
+                                                gStartBuying = false;
+                                            });
+                                        }).thenCatch(function() {
+                                            return buyErrorHandle(prefix, "page refresh-> input");
                                         });
-                                    }).thenCatch(function() {
-                                        return buyErrorHandle(prefix, "page refresh-> input");
                                     });
+                                }).thenCatch(function() {
+                                    return buyErrorHandle(prefix, 'page refresh-> max-shares');
                                 });
-                            }).thenCatch(function() {
-                                return buyErrorHandle(prefix, 'page refresh-> max-shares');
-                            });
-                        }           
+                            }
+                        });           
                     }).thenCatch(function() {
-                        return buyErrorHandle(prefix, "Too late", productToBuy.transferId, new Date().toLocaleTimeString());
+                        return buyErrorHandle(prefix, "error occured - > get creditLevel");
                     });
+                }).thenCatch(function() {
+                    return buyErrorHandle(prefix, "Too late", productToBuy.transferId, new Date().toLocaleTimeString());
                 });
             });
         
