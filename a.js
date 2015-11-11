@@ -1,4 +1,4 @@
-var minInterest = 10;
+var minInterest = 13.2;
 var minAmount = 10;
 var config = require('./config.json');
 
@@ -64,8 +64,8 @@ var updateBalance =function() {
     driver.get('https://www.we.com/account/index.action');
     return $(path.user.avilableBalance).getText().then(function(fund) {
         fund = fund.replace(",", "");
-        
-        gAvailableBalance = 1000;
+        gAvailableBalance = parseInt(fund);
+        // gAvailableBalance = 1000;
         console.log("updateBalance", gAvailableBalance)
     });
 }
@@ -132,7 +132,7 @@ driver.wait(function() {
                         el.getAttribute('title').then(function(text) {
                             creditLevel = parseInt(text.replace(/[^0-9]/ig,""));
                             console.log(prefix, 'creditLevel: ', creditLevel)
-                            driver.sleep(100);
+                            // driver.sleep(100);
                             if (creditLevel < 100) {
                                 return buyErrorHandle(prefix, "Too low credit level:", creditLevel);
                             } else {
@@ -159,10 +159,10 @@ driver.wait(function() {
                                             }
                                             el.sendKeys(shares);
 
-                                            gFinishBuyingTime = 0;
-                                            gStartBuying = false;
-                                            console.log('test over');
-                                            return;
+                                            // gFinishBuyingTime = 0;
+                                            // gStartBuying = false;
+                                            // console.log('test over');
+                                            // return;
 
                                             _click($('#invest-submit')).then(function() {
                                                 console.log(prefix, "before final click:", productToBuy.transferId, "To Buy:", shares+"*"+ productToBuy.pricePerShare, new Date().toLocaleTimeString(), (new Date() - startBuyingTime));
