@@ -1,4 +1,4 @@
-var minInterest = 13.2;
+var minInterest = 13.5;
 var minAmount = 10;
 var config = require('./config.json');
 
@@ -75,6 +75,7 @@ driver.get('https://www.we.com/loginPage.action').then(function() {
         setInterval(function() {
             driver.get('http://www.we.com/transfer/transferList.action');
             console.log("sessionHeartBeat:", nextTransferId, gAvailableBalance, new Date().toLocaleTimeString())
+            updateBalance();
         }, 300000);
         return updateBalance();
     }).then(function() {
