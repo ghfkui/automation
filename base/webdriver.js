@@ -1,6 +1,7 @@
 var wd = require('selenium-webdriver')
     , By = wd.By
     , Until = wd.until
+    , fs = require("fs")
     , base = {Wd: wd, By: By, Until: Until};
  
 /**
@@ -194,6 +195,24 @@ base.__ = function(locator) {
  */
 base._ = function(locator) {
     return base.driver.findElement(locator);
+}
+
+/**
+ * take screen shot
+ */
+base.takeScreenshot = function(fileName, screenShotPath){
+    fileName = fileName || '';
+    if (!fs.existsSync(screenShotPath)) {
+        fs.mkdirSync(screenShotPath);
+    }
+    return base.driver.takeScreenshot().then(function(base64Img){
+        fs.writeFileSync(
+            screenShotPath + 
+            new Date().toGMTString().replace(/[^a-z0-9]/ig, '_') + '-' + fileName + '.png', 
+            base64Img, 
+            'base64'
+        );
+    });
 }
 
 module.exports = base; 
